@@ -1,3 +1,6 @@
 bdir/
+simdir/
 rtl/
 *.sched
+*.so
+bsim

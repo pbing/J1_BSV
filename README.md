@@ -3,7 +3,19 @@
 
 Rewritten in Bluespec SystemVerilog (BSV) from [Verilog Source](https://github.com/ros-drivers/wge100_driver/tree/hydro-devel/wge100_camera_firmware/src/hardware/verilog/j1.v).
 
-
+Create an environment for BSC
 ```shell
-./compile.sh -g mkJ1 src/J1.bsv
+source env.sh
+```
+
+Simulate
+```shell
+bsc -sim -g mkTb -u ./test/Tb.bsv
+bsc -sim -e mkTb
+./sim
+```
+
+Create RTL
+```shell
+bsc -verilog -g mkJ1 -u ./src/J1.bsv
 ```
