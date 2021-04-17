@@ -4,3 +4,4 @@ rtl/
 *.sched
 *.so
 bsim
+run.sh
