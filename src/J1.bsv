@@ -72,6 +72,7 @@ module mkJ1(IOClient);
          tagged Zbranch .target:
             begin
                _dsp = dsp - 1; // predicated jump is like DROP
+               _st0 = st1;
                if (st0 == 0)
                   _pc = zeroExtend({target, 1'b0});
                else
@@ -122,11 +123,11 @@ module mkJ1(IOClient);
                if (is_ram_addr)
                   ram.b.put(n_to_mem, st0[14:1], st1);
 
-               _dsp = dsp + signExtend(opcode.Alu.dstack);
+               _dsp = dsp + signExtend(dstk);
                if (t_to_n)
                   dstack.upd(_dsp, st0);
 
-               _rsp = rsp + signExtend(opcode.Alu.rstack);
+               _rsp = rsp + signExtend(rstk);
                if (t_to_r)
                   rstack.upd(_rsp, st0);
 
