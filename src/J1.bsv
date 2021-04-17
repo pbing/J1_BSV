@@ -34,11 +34,11 @@ module mkJ1(IOClient);
     */
    BRAM_DUAL_PORT#(RamAddr, Word) ram <- mkBRAMCore2Load(2**14, False, "ram.mem", False);
 
-   /* data stack 32x32 + st0 */
+   /* data stack 32x16 + st0 */
    RegFile#(StackPtr, Word) dstack <- mkRegFileFull;
    let st1 = dstack.sub(dsp); // next of stack (NOS)
 
-   /* return stack 32x32 */
+   /* return stack 32x16 */
    RegFile#(StackPtr, Word) rstack <- mkRegFileFull;
    let rst0 = rstack.sub(rsp); // top of return stack (TOR)
 
