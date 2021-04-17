@@ -1,11 +1,11 @@
 package Tb;
 
+import ClientServer::*;
+import Types::*;
+import J1::*;
+
 module mkTb(Empty);
-   
-   rule hello;
-      $display("Hello, world!");
-      $finish;
-   endrule
+   IOClient dut <- mkJ1;
    
 endmodule
 

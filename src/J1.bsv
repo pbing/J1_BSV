@@ -23,13 +23,10 @@ function DecodedInst decode (Word x);
 endfunction
 
 module mkJ1(IOClient);
-   Reg#(Bit#(15))  pc  <- mkRegA(0); // process counter
-   Reg#(Word)      st0 <- mkRegA(0); // top of stack (TOS)
-   Reg#(StackPtr)  dsp <- mkRegA(0); // data stack pointer
-   Reg#(StackPtr)  rsp <- mkRegA(0); // return stack pointer
-
-   Reg#(IOResponse) io_response <- mkRegU;
-   Wire#(Bool)      n_to_io <- mkWire;
+   Reg#(Bit#(15))  pc  <- mkReg(0); // process counter
+   Reg#(Word)      st0 <- mkRegU;   // top of stack (TOS)
+   Reg#(StackPtr)  dsp <- mkReg(0); // data stack pointer
+   Reg#(StackPtr)  rsp <- mkReg(0); // return stack pointer
 
    /* Dual-Port RAM 16Kx16
     *  port a: instruction
@@ -50,21 +47,22 @@ module mkJ1(IOClient);
    
    rule run;
       /* instruction fetch */
+      let _pc = pc;
+      ram.a.put(False, _pc[14:1], ?);
       let insn = ram.a.read;
       let opcode = decode(insn);
 
-      n_to_io <= opcode.Alu.n_to_mem;
-
       /* execute */
-      let _pc = pc;
-
+      Word     _st0 = st0;
+      StackPtr _dsp = dsp;
+      StackPtr _rsp = rsp;
+      
       case (opcode) matches
          tagged Lit .value:
             begin
-               let _dsp = dsp + 1;
+               _dsp = dsp + 1;
                dstack.upd(_dsp, st0);
-               dsp <= _dsp;
-               st0 <= {1'b0, value};
+               _st0 = {1'b0, value};
                _pc  = pc + 2;
             end
 
@@ -73,7 +71,7 @@ module mkJ1(IOClient);
 
          tagged Zbranch .target:
             begin
-               dsp <= dsp - 1; // predicated jump is like DROP
+               _dsp = dsp - 1; // predicated jump is like DROP
                if (st0 == 0)
                   _pc = zeroExtend({target, 1'b0});
                else
@@ -82,9 +80,8 @@ module mkJ1(IOClient);
 
          tagged Call .target:
             begin
-               let _rsp = rsp + 1;
+               _rsp = rsp + 1;
                rstack.upd(_rsp, zeroExtend(pc));
-               rsp <= _rsp;
                _pc = zeroExtend({target, 1'b0});
             end
 
@@ -102,8 +99,6 @@ module mkJ1(IOClient);
                Int#(16) sst0 = unpack(st0);
                Int#(16) sst1 = unpack(st1);
 
-               Word _st0 = ?;
-
                case (op)
                   OP_T          : _st0 = st0;
                   OP_N          : _st0 = st1;
@@ -117,7 +112,7 @@ module mkJ1(IOClient);
                   OP_N_RSHIFT_T : _st0 = (st0 > 15) ? 0 : st1 >> st0[3:0];
                   OP_T_MINUS_1  : _st0 = st0 - 1;
                   OP_R          : _st0 = rst0;
-                  OP_AT         : _st0 = (is_ram_addr) ? ram.b.read : io_response.data;
+                  OP_AT         : _st0 = (is_ram_addr) ? ram.b.read : ?; // FIXME: add I/O
                   OP_N_LSHIFT_T : _st0 = (st0 > 15) ? 0 : st1 << st0[3:0];
                   OP_DEPTH      : _st0 = {3'b0, rsp, 3'b0, dsp};
                   OP_N_ULS_T    : _st0 = (st1 < st0) ? '1 : '0;
@@ -127,11 +122,13 @@ module mkJ1(IOClient);
                if (is_ram_addr)
                   ram.b.put(n_to_mem, st0[14:1], st1);
 
+               _dsp = dsp + signExtend(opcode.Alu.dstack);
                if (t_to_n)
-                  dstack.upd(dsp + signExtend(dstk), _st0);
+                  dstack.upd(_dsp, st0);
 
+               _rsp = rsp + signExtend(opcode.Alu.rstack);
                if (t_to_r)
-                  rstack.upd(rsp + signExtend(rstk), st0);
+                  rstack.upd(_rsp, st0);
 
                if (r_to_pc)
                   _pc = truncate(rst0);
@@ -140,21 +137,24 @@ module mkJ1(IOClient);
             end
       endcase
 
-      ram.a.put(False, _pc[14:1], ?);
+      dsp <= _dsp;
+      rsp <= _rsp;
+      st0 <= _st0;
+      pc  <= _pc;
+
+      $display("pc=%h opcode=%h dsp=%h st0=%h st1=%h rsp=%h rst0=%h",
+               pc, opcode, dsp, st0, st1, rsp, rst0);
    endrule
    
    interface Get request;
-      // Method: request_get
-      // Ready signal: n_to_io.whas && (! 1'd1)
-      // Conflict-free: request_get, response_put
       method ActionValue#(IORequest) get();
-         return IORequest {write: n_to_io, address: st0, data: st1};
+         return ?; // FIXME
       endmethod
    endinterface
 
    interface Put response;
       method Action put(rsp);
-         io_response <= rsp;
+      // FIXME
       endmethod
    endinterface
    
