@@ -47,15 +47,14 @@ module mkJ1(IOClient);
    
    rule run;
       /* instruction fetch */
-      let _pc = pc;
-      ram.a.put(False, _pc[14:1], ?);
-      let insn = ram.a.read;
+      let insn   = (pc == 0) ? 16'h6000 : ram.a.read; // first instruction must always be a NOOP
       let opcode = decode(insn);
 
       /* execute */
-      Word     _st0 = st0;
-      StackPtr _dsp = dsp;
-      StackPtr _rsp = rsp;
+      let _st0 = st0;
+      let _dsp = dsp;
+      let _rsp = rsp;
+      let  _pc = pc;
       
       case (opcode) matches
          tagged Lit .value:
@@ -82,7 +81,7 @@ module mkJ1(IOClient);
          tagged Call .target:
             begin
                _rsp = rsp + 1;
-               rstack.upd(_rsp, zeroExtend(pc));
+               rstack.upd(_rsp, zeroExtend(pc + 2));
                _pc = zeroExtend({target, 1'b0});
             end
 
@@ -138,13 +137,15 @@ module mkJ1(IOClient);
             end
       endcase
 
+      ram.a.put(False, _pc[14:1], ?);
+
       dsp <= _dsp;
       rsp <= _rsp;
       st0 <= _st0;
       pc  <= _pc;
 
-      $display("pc=%h opcode=%h dsp=%h st0=%h st1=%h rsp=%h rst0=%h",
-               pc, opcode, dsp, st0, st1, rsp, rst0);
+      $display("%t: pc=%h insn=%h dsp=%h st0=%h st1=%h rsp=%h rst0=%h",
+               $time, pc, insn, dsp, st0, st1, rsp, rst0);
    endrule
    
    interface Get request;
