@@ -42,9 +42,6 @@ module mkJ1(IOClient);
    RegFile#(StackPtr, Word) rstack <- mkRegFileFull;
    let rst0 = rstack.sub(rsp); // top of return stack (TOR)
 
-   Bool is_ram_addr = st0[15:14] == 0;
-   Bool is_io_addr  = !is_ram_addr;
-   
    rule run;
       /* instruction fetch */
       let insn   = (pc == 0) ? 16'h6000 : ram.a.read; // first instruction must always be a NOOP
@@ -55,46 +52,47 @@ module mkJ1(IOClient);
       let _dsp = dsp;
       let _rsp = rsp;
       let  _pc = pc;
-      
+
       case (opcode) matches
          tagged Lit .value:
-            begin
+            begin: ex_lit
                _dsp = dsp + 1;
                dstack.upd(_dsp, st0);
                _st0 = {1'b0, value};
                _pc  = pc + 2;
-            end
+            end: ex_lit
 
          tagged Ubranch .target:
-            _pc = zeroExtend({target, 1'b0});
+            begin: ex_ubranch
+               _pc = zeroExtend({target, 1'b0});
+            end: ex_ubranch
 
          tagged Zbranch .target:
-            begin
+            begin: ex_zbranch
                _dsp = dsp - 1; // predicated jump is like DROP
                _st0 = st1;
                if (st0 == 0)
                   _pc = zeroExtend({target, 1'b0});
                else
                   _pc = pc + 2;
-            end
+            end: ex_zbranch
 
          tagged Call .target:
-            begin
+            begin: ex_call
                _rsp = rsp + 1;
                rstack.upd(_rsp, zeroExtend(pc + 2));
                _pc = zeroExtend({target, 1'b0});
-            end
+            end: ex_call
 
          tagged Alu {
                      r_to_pc:  .r_to_pc,
                      op:       .op,
                      t_to_n:   .t_to_n,
                      t_to_r:   .t_to_r,
-                     n_to_mem: .n_to_mem,
                      rstack:   .rstk,
                      dstack:   .dstk
                      }:
-            begin
+            begin: ex_alu
                /* signed stack operands */
                Int#(16) sst0 = unpack(st0);
                Int#(16) sst1 = unpack(st1);
@@ -112,15 +110,12 @@ module mkJ1(IOClient);
                   OP_N_RSHIFT_T : _st0 = (st0 > 15) ? 0 : st1 >> st0[3:0];
                   OP_T_MINUS_1  : _st0 = st0 - 1;
                   OP_R          : _st0 = rst0;
-                  OP_AT         : _st0 = (is_ram_addr) ? ram.b.read : ?; // FIXME: add I/O
+                  OP_AT         : _st0 = (st0[15:14] == 0) ? ram.b.read : ?; // FIXME: add I/O
                   OP_N_LSHIFT_T : _st0 = (st0 > 15) ? 0 : st1 << st0[3:0];
                   OP_DEPTH      : _st0 = {3'b0, rsp, 3'b0, dsp};
                   OP_N_ULS_T    : _st0 = (st1 < st0) ? '1 : '0;
                   default         _st0 = ?;
                endcase
-
-               if (is_ram_addr)
-                  ram.b.put(n_to_mem, st0[14:1], st1);
 
                _dsp = dsp + signExtend(dstk);
                if (t_to_n)
@@ -134,10 +129,14 @@ module mkJ1(IOClient);
                   _pc = truncate(rst0);
                else
                   _pc = pc + 2;
-            end
+            end: ex_alu
       endcase
 
       ram.a.put(False, _pc[14:1], ?);
+
+      // FIXME: add I/O
+      if (_st0[15:14] == 0)
+         ram.b.put(opcode.Alu.n_to_mem, _st0[14:1], st1);
 
       dsp <= _dsp;
       rsp <= _rsp;
@@ -147,7 +146,7 @@ module mkJ1(IOClient);
       $display("%t: pc=%h insn=%h dsp=%h st0=%h st1=%h rsp=%h rst0=%h",
                $time, pc, insn, dsp, st0, st1, rsp, rst0);
    endrule
-   
+
    interface Get request;
       method ActionValue#(IORequest) get();
          return ?; // FIXME
@@ -159,7 +158,7 @@ module mkJ1(IOClient);
       // FIXME
       endmethod
    endinterface
-   
+
 endmodule
 
 endpackage

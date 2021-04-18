@@ -2,7 +2,7 @@ module[ application"
 
 \ 10th fibonacci
 \ with memory access
-\ 301 cycles
+\ 267 cycles
 URAM
 variable a
 variable b

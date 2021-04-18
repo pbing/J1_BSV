@@ -3,5 +3,11 @@ simdir/
 rtl/
 *.sched
 *.so
+*.gtkw
+*.vcd
+*.lst
+*.hex
+*.mif
 bsim
 run.sh
+clean.sh
