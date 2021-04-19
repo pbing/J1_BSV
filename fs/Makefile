@@ -14,8 +14,8 @@ SRC = crossj1.fs \
 j1.mif j1.hex j1.lst: $(SRC) *.fs
 	$(FORTH) main.fs
 
-sim: j1.hex j1.mif
-	cp $^ ../sim
+sim: j1.hex
+	cp $^ ..
 
 syn: j1.mif
 	cp $^ ../syn

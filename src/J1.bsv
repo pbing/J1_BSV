@@ -32,7 +32,7 @@ module mkJ1(IOClient);
     *  port a: instruction
     *  port b: data
     */
-   BRAM_DUAL_PORT#(RamAddr, Word) ram <- mkBRAMCore2Load(2**14, False, "ram.mem", False);
+   BRAM_DUAL_PORT#(RamAddr, Word) ram <- mkBRAMCore2Load(2**14, False, "j1.hex", False);
 
    /* data stack 32x16 + st0 */
    RegFile#(StackPtr, Word) dstack <- mkRegFileFull;
