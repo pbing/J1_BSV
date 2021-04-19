@@ -52,6 +52,7 @@ module mkJ1(IOClient);
       let _dsp = dsp;
       let _rsp = rsp;
       let  _pc = pc;
+      Bool wen = False;
 
       case (opcode) matches
          tagged Lit .value:
@@ -89,6 +90,7 @@ module mkJ1(IOClient);
                      op:       .op,
                      t_to_n:   .t_to_n,
                      t_to_r:   .t_to_r,
+                     n_to_mem: .n_to_mem,
                      rstack:   .rstk,
                      dstack:   .dstk
                      }:
@@ -117,6 +119,8 @@ module mkJ1(IOClient);
                   default         _st0 = ?;
                endcase
 
+               wen = n_to_mem;
+
                _dsp = dsp + signExtend(dstk);
                if (t_to_n)
                   dstack.upd(_dsp, st0);
@@ -136,7 +140,7 @@ module mkJ1(IOClient);
 
       // FIXME: add I/O
       if (_st0[15:14] == 0)
-         ram.b.put(opcode.Alu.n_to_mem, _st0[14:1], st1);
+         ram.b.put(wen, _st0[14:1], st1);
 
       dsp <= _dsp;
       rsp <= _rsp;
