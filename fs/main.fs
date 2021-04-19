@@ -23,9 +23,9 @@ module[ everything"
 include ../j1_forth/nuc.fs
 
 \ include stack.fs
-include fib1.fs
+\ include fib1.fs
 \ include fib2.fs
-\ include multdiv.fs
+include multdiv.fs
 
 ]module
 
