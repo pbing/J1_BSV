@@ -1,6 +1,6 @@
 #!/bin/zsh
 BDIR=bdir
-VDIR=rtl
+VDIR=verilog
 SIMDIR=simdir
 
 mkdir -p $BDIR $VDIR $SIMDIR
