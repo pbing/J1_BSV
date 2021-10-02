@@ -1,6 +1,8 @@
-// http://csg.csail.mit.edu/6.375/6_375_2016_www/handouts/lectures/L09-NonPipelinedProcessors.pdf
+/* J1 Forth CPU */
 
 package J1;
+
+export J1Client_IFC, J1Server_IFC, mkJ1;
 
 import BRAMCore::*;
 import ClientServer::*;
@@ -31,7 +33,7 @@ typedef enum {
    OP_N_LSHIFT_T,
    OP_DEPTH,
    OP_N_ULS_T
-} Op deriving (Bits, Eq);
+} Op deriving (Bits, Eq, FShow);
 
 typedef union tagged {
    Bit#(15) Lit;
@@ -48,12 +50,13 @@ typedef union tagged {
       StackOff rstack;
       StackOff dstack;
       } Alu;
-   } DecodedInst deriving (Bits);
+   } DecodedInst deriving (Bits, FShow);
 
-typedef Client#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1_IFC;
+typedef Client#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Client_IFC;
+typedef Server#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Server_IFC;
 
 (* synthesize *)
-module mkJ1(J1_IFC);
+module mkJ1(J1Client_IFC);
    Reg#(Bit#(15))                pc     <- mkReg(0); // process counter
    Reg#(Word)                    st0    <- mkRegU;   // top of stack (TOS)
    Reg#(StackPtr)                dsp    <- mkReg(0); // data stack pointer
@@ -86,6 +89,36 @@ module mkJ1(J1_IFC);
             2'b10: return tagged Call x[12:0];
             2'b11: return tagged Alu unpack(x[12:0]);
          endcase
+   endfunction
+   
+   function Word alu(Op op);
+      /* signed stack operands */
+      Int#(16) sst0 = unpack(st0);
+      Int#(16) sst1 = unpack(st1);
+
+      //Word io_read = pack(io_rsp.first);
+      //if (op == OP_AT) io_rsp.deq();
+      Word io_read = ?;
+
+      case (op)
+         OP_T          : alu = st0;
+         OP_N          : alu = st1;
+         OP_T_PLUS_N   : alu = st0 + st1;
+         OP_T_AND_N    : alu = st0 & st1;
+         OP_T_IOR_N    : alu = st0 | st1;
+         OP_T_XOR_N    : alu = st0 ^ st1;
+         OP_INV_T      : alu = ~st0;
+         OP_N_EQ_T     : alu = (st1 == st0) ? '1 : '0;
+         OP_N_LS_T     : alu = (sst1 < sst0) ? '1 : '0;
+         OP_N_RSHIFT_T : alu = (st0 > 15) ? 0 : st1 >> st0[3:0];
+         OP_T_MINUS_1  : alu = st0 - 1;
+         OP_R          : alu = rst0;
+         OP_AT         : alu = (st0[15:14] == 0) ? ram.b.read : io_read;
+         OP_N_LSHIFT_T : alu = (st0 > 15) ? 0 : st1 << st0[3:0];
+         OP_DEPTH      : alu = {3'b0, rsp, 3'b0, dsp};
+         OP_N_ULS_T    : alu = (st1 < st0) ? '1 : '0;
+         default         alu = ?;
+      endcase
    endfunction
 
    rule run;
@@ -141,35 +174,8 @@ module mkJ1(J1_IFC);
                      dstack:   .dstk
                      }:
             begin
-               /* signed stack operands */
-               Int#(16) sst0 = unpack(st0);
-               Int#(16) sst1 = unpack(st1);
-               
-               //Word io_read = pack(io_rsp.first);
-               //if (op == OP_AT) io_rsp.deq();
-               Word io_read = ?;
-
-               case (op)
-                  OP_T          : _st0 = st0;
-                  OP_N          : _st0 = st1;
-                  OP_T_PLUS_N   : _st0 = st0 + st1;
-                  OP_T_AND_N    : _st0 = st0 & st1;
-                  OP_T_IOR_N    : _st0 = st0 | st1;
-                  OP_T_XOR_N    : _st0 = st0 ^ st1;
-                  OP_INV_T      : _st0 = ~st0;
-                  OP_N_EQ_T     : _st0 = (st1 == st0) ? '1 : '0;
-                  OP_N_LS_T     : _st0 = (sst1 < sst0) ? '1 : '0;
-                  OP_N_RSHIFT_T : _st0 = (st0 > 15) ? 0 : st1 >> st0[3:0];
-                  OP_T_MINUS_1  : _st0 = st0 - 1;
-                  OP_R          : _st0 = rst0;
-                  OP_AT         : _st0 = (st0[15:14] == 0) ? ram.b.read : io_read;
-                  OP_N_LSHIFT_T : _st0 = (st0 > 15) ? 0 : st1 << st0[3:0];
-                  OP_DEPTH      : _st0 = {3'b0, rsp, 3'b0, dsp};
-                  OP_N_ULS_T    : _st0 = (st1 < st0) ? '1 : '0;
-                  default         _st0 = ?;
-               endcase
-
-               wen = n_to_mem;
+               _st0 = alu(op);
+               wen  = n_to_mem;
 
                _dsp = dsp + signExtend(dstk);
                if (t_to_n)
@@ -190,7 +196,7 @@ module mkJ1(J1_IFC);
 
       if (_st0[15:14] == 0)
          ram.b.put(wen, _st0[14:1], st1);
-      else begin
+      else if (insn[15:13] == 3'b011 && insn[11:8] == 4'hc) begin
          let req = MemoryRequest {write:   wen,
                                   byteen:  '1,
                                   address: _st0,
@@ -205,6 +211,7 @@ module mkJ1(J1_IFC);
 
       $display("%t: pc=%h insn=%h dsp=%h st0=%h st1=%h rsp=%h rst0=%h",
                $time, pc, insn, dsp, st0, st1, rsp, rst0);
+      //$display("%t: ", $time, fshow(opcode));
    endrule
 
    interface Get request  = toGet(io_req);
