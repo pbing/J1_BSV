@@ -34,7 +34,7 @@ typedef enum {
    OP_N_LSHIFT_T,
    OP_DEPTH,
    OP_N_ULS_T
-} Op deriving (Bits, Eq, FShow);
+   } Op deriving (Bits, Eq, FShow);
 
 typedef union tagged {
    Bit#(15) Lit;
@@ -53,6 +53,7 @@ typedef union tagged {
       } Alu;
    } DecodedInst deriving (Bits, FShow);
 
+
 typedef Client#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Client_IFC;
 typedef Server#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Server_IFC;
 
@@ -66,9 +67,9 @@ module mkJ1(J1Client_IFC);
    FIFOF#(MemoryResponse#(16))   io_rsp <- mkFIFOF;
 
    /* Dual-Port RAM 16Kx16
-    *  port a: instruction
-    *  port b: data
-    */
+   *  port a: instruction
+   *  port b: data
+   */
    BRAM_DUAL_PORT#(RamAddr, Word) ram <- mkBRAMCore2Load(2**14, False, "j1.hex", False);
 
    /* data stack 32x16 + st0 */
@@ -91,7 +92,7 @@ module mkJ1(J1Client_IFC);
             2'b11: return tagged Alu unpack(x[12:0]);
          endcase
    endfunction
-   
+
    /* ALU */
    function Word alu(Op op, Word rdata);
       /* signed stack operands */
@@ -121,7 +122,8 @@ module mkJ1(J1Client_IFC);
 
    rule run;
       /* instruction fetch */
-      let insn   = (pc == 0) ? 16'h6000 : ram.a.read; // first instruction must always be a NOOP
+      Word noop  = 16'h6000;
+      let insn   = (pc == 0) ? noop : ram.a.read; // first instruction must always be a NOOP
       let opcode = decode(insn);
 
       /* execute */
@@ -178,13 +180,13 @@ module mkJ1(J1Client_IFC);
 
                Word rdata = ?;
                if (ren)
-                 if (st0[15:14] == 0)
-                    rdata =ram.b.read;
-                 //else begin
-                 //   $display("%t: IO READ", $time);
-                 //   rdata = pack(io_rsp.first);
-                 //   io_rsp.deq();
-                 //end
+                  if (st0[15:14] == 0)
+                     rdata =ram.b.read;
+                  //else begin
+                  //   $display("%t: IO READ", $time);
+                  //   rdata = pack(io_rsp.first);
+                  //   io_rsp.deq();
+                  //end
 
                _st0 = alu(op, rdata);
 
