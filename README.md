@@ -22,5 +22,6 @@ bsc -verilog -u ./src/J1.bsv
 ```
 
 ## References
-* [J1: a small Forth CPU Core for FPGAs](http://excamera.com/sphinx/fpga-j1.html)
-* http://csg.csail.mit.edu/6.375/6_375_2016_www/handouts/lectures/L09-NonPipelinedProcessors.pdf
+* [James Bowman, Willow Garage, "J1: a small Forth CPU core for FPGAs"](http://excamera.com/sphinx/fpga-j1.html)
+* [Arvind, "Non-pipelined processors", 2016](http://csg.csail.mit.edu/6.375/6_375_2016_www/handouts/lectures/L09-NonPipelinedProcessors.pdf)
+* [Arvind, "Non-pipelined processors", 2019](http://csg.csail.mit.edu/6.375/6_375_2019_www/handouts/lectures/L10-NonPipelinedProcessors.pdf)

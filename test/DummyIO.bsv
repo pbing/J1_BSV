@@ -14,27 +14,20 @@ module mkDummyIO(J1Server_IFC);
    FIFO#(MemoryRequest#(16, 16)) io_req <- mkFIFO;
    FIFO#(MemoryResponse#(16))    io_rsp <- mkFIFO;
 
-   //rule serve_io;
-   //   let req <- dut.request.get;
-   //   $display("%t IO_REQ=", $time, fshow(req));
-   //
-   //   MemoryResponse#(16) rsp = MemoryResponse {data: ?};
-   //   dut.response.put(rsp);
-   //   $display("%t IO_RSP=", $time, fshow(rsp));
-   //endrule
+   rule serve_io;
+      let req = io_req.first;
+      io_req.deq();
+      $display("%t IO_REQ=", $time, fshow(req));
 
-  // interface Get response = toGet(io_rsp);
-   interface Get response;
-      method ActionValue#(MemoryResponse#(16)) get();
-         return MemoryResponse {data: ?};
-      endmethod
-   endinterface
+      if (!req.write) begin
+         let rsp   = MemoryResponse {data: ~req.address};
+         io_rsp.enq(rsp);
+         $display("%t IO_RSP=", $time, fshow(rsp));
+      end
+   endrule
 
-   //interface Put request  = toPut(io_req);
-   interface Put request;
-      method Action put(x);
-      endmethod
-   endinterface
+   interface Get response = toGet(io_rsp);
+   interface Put request  = toPut(io_req);
 endmodule
 
 

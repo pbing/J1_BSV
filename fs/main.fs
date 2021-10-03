@@ -25,8 +25,8 @@ include ../j1_forth/nuc.fs
 \ include stack.fs
 \ include fib1.fs
 \ include fib2.fs
-\ include multdiv.fs
-include io1.fs
+include multdiv.fs
+\ include io1.fs
 
 ]module
 
@@ -47,7 +47,7 @@ hex
 \ for RTL simulation
 s" j1.hex" create-output-file
 :noname
-    8000 0 do
+    2000 0 do
        i t@ s>d <# # # # # #> type cr
     2 +loop
 ; execute

@@ -8,6 +8,7 @@ import BRAMCore::*;
 import ClientServer::*;
 import GetPut::*;
 import FIFO::*;
+import FIFOF::*;
 import Memory::*;
 import RegFile::*;
 
@@ -62,7 +63,7 @@ module mkJ1(J1Client_IFC);
    Reg#(StackPtr)                dsp    <- mkReg(0); // data stack pointer
    Reg#(StackPtr)                rsp    <- mkReg(0); // return stack pointer
    FIFO#(MemoryRequest#(16, 16)) io_req <- mkFIFO;
-   FIFO#(MemoryResponse#(16))    io_rsp <- mkFIFO;
+   FIFOF#(MemoryResponse#(16))   io_rsp <- mkFIFOF;
 
    /* Dual-Port RAM 16Kx16
     *  port a: instruction
@@ -91,14 +92,11 @@ module mkJ1(J1Client_IFC);
          endcase
    endfunction
    
-   function Word alu(Op op);
+   /* ALU */
+   function Word alu(Op op, Word rdata);
       /* signed stack operands */
       Int#(16) sst0 = unpack(st0);
       Int#(16) sst1 = unpack(st1);
-
-      //Word io_read = pack(io_rsp.first);
-      //if (op == OP_AT) io_rsp.deq();
-      Word io_read = ?;
 
       case (op)
          OP_T          : alu = st0;
@@ -113,7 +111,7 @@ module mkJ1(J1Client_IFC);
          OP_N_RSHIFT_T : alu = (st0 > 15) ? 0 : st1 >> st0[3:0];
          OP_T_MINUS_1  : alu = st0 - 1;
          OP_R          : alu = rst0;
-         OP_AT         : alu = (st0[15:14] == 0) ? ram.b.read : io_read;
+         OP_AT         : alu = rdata;
          OP_N_LSHIFT_T : alu = (st0 > 15) ? 0 : st1 << st0[3:0];
          OP_DEPTH      : alu = {3'b0, rsp, 3'b0, dsp};
          OP_N_ULS_T    : alu = (st1 < st0) ? '1 : '0;
@@ -132,6 +130,7 @@ module mkJ1(J1Client_IFC);
       let _rsp = rsp;
       let  _pc = pc;
       Bool wen = False;
+      Bool ren = False;
 
       case (opcode) matches
          tagged Lit .value:
@@ -174,8 +173,20 @@ module mkJ1(J1Client_IFC);
                      dstack:   .dstk
                      }:
             begin
-               _st0 = alu(op);
-               wen  = n_to_mem;
+               wen = n_to_mem;
+               ren = (op == OP_AT) && !wen;
+
+               Word rdata = ?;
+               if (ren)
+                 if (st0[15:14] == 0)
+                    rdata =ram.b.read;
+                 //else begin
+                 //   $display("%t: IO READ", $time);
+                 //   rdata = pack(io_rsp.first);
+                 //   io_rsp.deq();
+                 //end
+
+               _st0 = alu(op, rdata);
 
                _dsp = dsp + signExtend(dstk);
                if (t_to_n)
@@ -196,12 +207,12 @@ module mkJ1(J1Client_IFC);
 
       if (_st0[15:14] == 0)
          ram.b.put(wen, _st0[14:1], st1);
-      else if (insn[15:13] == 3'b011 && insn[11:8] == 4'hc) begin
+      else if (ren || wen) begin
          let req = MemoryRequest {write:   wen,
                                   byteen:  '1,
                                   address: _st0,
                                   data:    st1};
-         //io_req.enq(req);
+         io_req.enq(req);
       end
 
       dsp <= _dsp;
@@ -212,6 +223,11 @@ module mkJ1(J1Client_IFC);
       $display("%t: pc=%h insn=%h dsp=%h st0=%h st1=%h rsp=%h rst0=%h",
                $time, pc, insn, dsp, st0, st1, rsp, rst0);
       //$display("%t: ", $time, fshow(opcode));
+   endrule
+   
+   rule io_response;
+      let rsp = io_rsp.first;
+      io_rsp.deq;
    endrule
 
    interface Get request  = toGet(io_req);
