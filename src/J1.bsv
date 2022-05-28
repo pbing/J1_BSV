@@ -197,7 +197,7 @@ module mkJ1(J1Client_IFC);
             end
       endcase
 
-      ram.a.put(False, _pc[14:1], ?);
+      ram.a.put(False, _pc[14:1], 0);
 
       if (_st0[15:14] == 0)
          ram.b.put(wen, _st0[14:1], st1);
