@@ -9,11 +9,20 @@ J1 Forth CPU core rewritten in Bluespec SystemVerilog (BSV) from [Verilog Source
 source env.sh
 ```
 
+### Compile Forth program
+```shell
+make -C fs sim
+```
+
 ### Simulate
 ```shell
 bsc -sim -u ./test/Tb.bsv
 bsc -sim -e mkTb
 ./bsim
+```
+or
+```shell
+./run.sh [ args ]
 ```
 
 ### Create RTL

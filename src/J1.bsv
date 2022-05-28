@@ -11,6 +11,7 @@ import FIFO::*;
 import FIFOF::*;
 import Memory::*;
 import RegFile::*;
+import Reserved::*;
 
 typedef Bit#(16) Word;
 typedef Bit#(5)  StackPtr;
@@ -42,14 +43,14 @@ typedef union tagged {
    Bit#(13) Zbranch;
    Bit#(13) Call;
    struct {
-      Bool     r_to_pc;
-      Op       op;
-      Bool     t_to_n;
-      Bool     t_to_r;
-      Bool     n_to_mem;
-      Bit#(1)  reserved; // same memory layout for unpack()
-      StackOff rstack;
-      StackOff dstack;
+      Bool         r_to_pc;
+      Op           op;
+      Bool         t_to_n;
+      Bool         t_to_r;
+      Bool         n_to_mem;
+      Reserved#(1) reserved; // same memory layout for unpack()
+      StackOff     rstack;
+      StackOff     dstack;
       } Alu;
    } DecodedInst deriving (Bits, FShow);
 
@@ -120,7 +121,7 @@ module mkJ1(J1Client_IFC);
       endcase
    endfunction
 
-   rule run;
+   rule rl_run;
       /* instruction fetch */
       Word noop  = 16'h6000;
       let insn   = (pc == 0) ? noop : ram.a.read; // first instruction must always be a NOOP
@@ -183,7 +184,6 @@ module mkJ1(J1Client_IFC);
                   if (st0[15:14] == 0)
                      rdata =ram.b.read;
                   //else begin
-                  //   $display("%t: IO READ", $time);
                   //   rdata = pack(io_rsp.first);
                   //   io_rsp.deq();
                   //end
@@ -226,14 +226,13 @@ module mkJ1(J1Client_IFC);
                $time, pc, insn, dsp, st0, st1, rsp, rst0);
       //$display("%t: ", $time, fshow(opcode));
    endrule
-   
-   rule io_response;
+
+   rule rl_io_rsp;
       let rsp = io_rsp.first;
       io_rsp.deq;
    endrule
 
-   interface Get request  = toGet(io_req);
-   interface Put response = toPut(io_rsp);
+   return toGPClient(io_req, io_rsp);
 endmodule
 
 endpackage

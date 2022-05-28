@@ -27,6 +27,7 @@ include ../j1_forth/nuc.fs
 \ include fib2.fs
 include multdiv.fs
 \ include io1.fs
+\ include io2.fs
 
 ]module
 
