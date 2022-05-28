@@ -20,10 +20,6 @@ bsc -sim -u ./test/Tb.bsv
 bsc -sim -e mkTb
 ./bsim
 ```
-or
-```shell
-./run.sh [ args ]
-```
 
 ### Create RTL
 ```shell
