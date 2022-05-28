@@ -140,13 +140,13 @@ module mkJ1(J1Client_IFC);
             begin
                _dsp = dsp + 1;
                dstack.upd(_dsp, st0);
-               _st0 = {1'b0, value};
+               _st0 = zeroExtend(value);
                _pc  = pc + 2;
             end
 
          tagged Ubranch .target:
             begin
-               _pc = zeroExtend({target, 1'b0});
+               _pc = zeroExtend(target << 1);
             end
 
          tagged Zbranch .target:
@@ -154,7 +154,7 @@ module mkJ1(J1Client_IFC);
                _dsp = dsp - 1; // predicated jump is like DROP
                _st0 = st1;
                if (st0 == 0)
-                  _pc = zeroExtend({target, 1'b0});
+                  _pc = zeroExtend(target << 1);
                else
                   _pc = pc + 2;
             end
@@ -163,7 +163,7 @@ module mkJ1(J1Client_IFC);
             begin
                _rsp = rsp + 1;
                rstack.upd(_rsp, zeroExtend(pc + 2));
-               _pc = zeroExtend({target, 1'b0});
+               _pc = zeroExtend(target << 1);
             end
 
          tagged Alu {
