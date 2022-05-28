@@ -54,7 +54,6 @@ typedef union tagged {
       } Alu;
    } DecodedInst deriving (Bits, FShow);
 
-
 typedef Client#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Client_IFC;
 typedef Server#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Server_IFC;
 
@@ -65,7 +64,8 @@ module mkJ1(J1Client_IFC);
    Reg#(StackPtr)                dsp    <- mkReg(0); // data stack pointer
    Reg#(StackPtr)                rsp    <- mkReg(0); // return stack pointer
    FIFO#(MemoryRequest#(16, 16)) io_req <- mkFIFO;
-   FIFOF#(MemoryResponse#(16))   io_rsp <- mkFIFOF;
+   FIFO#(MemoryResponse#(16))    io_rsp <- mkFIFO;
+   Wire#(Word)                   io_rdata <- mkDWire(?);
 
    /* Dual-Port RAM 16Kx16
    *  port a: instruction
@@ -179,15 +179,7 @@ module mkJ1(J1Client_IFC);
                wen = n_to_mem;
                ren = (op == OP_AT) && !wen;
 
-               Word rdata = ?;
-               if (ren)
-                  if (st0[15:14] == 0)
-                     rdata =ram.b.read;
-                  //else begin
-                  //   rdata = pack(io_rsp.first);
-                  //   io_rsp.deq();
-                  //end
-
+               let rdata = (st0[15:14] == 0) ? ram.b.read : io_rdata;
                _st0 = alu(op, rdata);
 
                _dsp = dsp + signExtend(dstk);
@@ -210,10 +202,7 @@ module mkJ1(J1Client_IFC);
       if (_st0[15:14] == 0)
          ram.b.put(wen, _st0[14:1], st1);
       else if (ren || wen) begin
-         let req = MemoryRequest {write:   wen,
-                                  byteen:  '1,
-                                  address: _st0,
-                                  data:    st1};
+         let req = MemoryRequest {write: wen, byteen: '1, address: _st0, data: st1};
          io_req.enq(req);
       end
 
@@ -230,6 +219,7 @@ module mkJ1(J1Client_IFC);
    rule rl_io_rsp;
       let rsp = io_rsp.first;
       io_rsp.deq;
+      io_rdata <= rsp.data;
    endrule
 
    return toGPClient(io_req, io_rsp);
