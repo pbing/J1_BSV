@@ -1,7 +1,7 @@
 module[ application"
 
 \ IO access
-\ 179 cycles
+\ 7 cycles
 : main ( --- 55 )
     h# 1234 h# 4000 !
     begin again ;
