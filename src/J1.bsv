@@ -13,49 +13,8 @@ import Memory::*;
 import RegFile::*;
 import Reserved::*;
 
-typedef Bit#(16) Word;
-typedef Bit#(5)  StackPtr;
-typedef Bit#(2)  StackOff;
-typedef Bit#(14) RamAddr;
-
-typedef enum {
-   OP_T,
-   OP_N,
-   OP_T_PLUS_N,
-   OP_T_AND_N,
-   OP_T_IOR_N,
-   OP_T_XOR_N,
-   OP_INV_T,
-   OP_N_EQ_T,
-   OP_N_LS_T,
-   OP_N_RSHIFT_T,
-   OP_T_MINUS_1,
-   OP_R,
-   OP_AT,
-   OP_N_LSHIFT_T,
-   OP_DEPTH,
-   OP_N_ULS_T
-   } Op deriving (Bits, Eq, FShow);
-
-typedef union tagged {
-   Bit#(15) Lit;
-   Bit#(13) Ubranch;
-   Bit#(13) Zbranch;
-   Bit#(13) Call;
-   struct {
-      Bool         r_to_pc;
-      Op           op;
-      Bool         t_to_n;
-      Bool         t_to_r;
-      Bool         n_to_mem;
-      Reserved#(1) reserved; // same memory layout for unpack()
-      StackOff     rstack;
-      StackOff     dstack;
-      } Alu;
-   } DecodedInst deriving (Bits, FShow);
-
-typedef Client#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Client_IFC;
-typedef Server#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Server_IFC;
+import J1Types::*;
+import J1Alu::*;
 
 (* synthesize *)
 module mkJ1(J1Client_IFC);
@@ -81,51 +40,11 @@ module mkJ1(J1Client_IFC);
    RegFile#(StackPtr, Word) rstack <- mkRegFileFull;
    let rst0 = rstack.sub(rsp); // top of return stack (TOR)
 
-   /* decode instruction */
-   function DecodedInst decode (Word x);
-      if (x[15] == 1)
-         return tagged Lit x[14:0];
-      else
-         case (x[14:13])
-            2'b00: return tagged Ubranch x[12:0];
-            2'b01: return tagged Zbranch x[12:0];
-            2'b10: return tagged Call x[12:0];
-            2'b11: return tagged Alu unpack(x[12:0]);
-         endcase
-   endfunction
-
-   /* ALU */
-   function Word alu(Op op, Word rdata);
-      /* signed stack operands */
-      Int#(16) sst0 = unpack(st0);
-      Int#(16) sst1 = unpack(st1);
-
-      case (op)
-         OP_T          : alu = st0;
-         OP_N          : alu = st1;
-         OP_T_PLUS_N   : alu = st0 + st1;
-         OP_T_AND_N    : alu = st0 & st1;
-         OP_T_IOR_N    : alu = st0 | st1;
-         OP_T_XOR_N    : alu = st0 ^ st1;
-         OP_INV_T      : alu = ~st0;
-         OP_N_EQ_T     : alu = (st1 == st0) ? '1 : '0;
-         OP_N_LS_T     : alu = (sst1 < sst0) ? '1 : '0;
-         OP_N_RSHIFT_T : alu = (st0 > 15) ? 0 : st1 >> st0[3:0];
-         OP_T_MINUS_1  : alu = st0 - 1;
-         OP_R          : alu = rst0;
-         OP_AT         : alu = rdata;
-         OP_N_LSHIFT_T : alu = (st0 > 15) ? 0 : st1 << st0[3:0];
-         OP_DEPTH      : alu = {3'b0, rsp, 3'b0, dsp};
-         OP_N_ULS_T    : alu = (st1 < st0) ? '1 : '0;
-         default         alu = ?;
-      endcase
-   endfunction
-
    rule rl_run;
       /* instruction fetch */
       Word noop  = 16'h6000;
       let insn   = (pc == 0) ? noop : ram.a.read; // first instruction must always be a NOOP
-      let opcode = decode(insn);
+      let opcode = unpack(extend(insn));
 
       /* execute */
       let _st0 = st0;
@@ -180,7 +99,7 @@ module mkJ1(J1Client_IFC);
                ren = (op == OP_AT) && !wen;
 
                let rdata = (st0[15:14] == 0) ? ram.b.read : io_rdata;
-               _st0 = alu(op, rdata);
+               _st0 = alu(op, st0, st1, rst0, rdata, dsp, rsp);
 
                _dsp = dsp + signExtend(dstk);
                if (t_to_n)
