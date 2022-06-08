@@ -45,33 +45,7 @@ typedef union tagged {
       StackOff     rstack;
       StackOff     dstack;
       } Alu;
-   } DecodedInst deriving (FShow);
-
-instance Bits#(DecodedInst, 18);
-   /* unused */
-   function Bit#(18) pack(DecodedInst x);
-      return ?;
-   endfunction
-
-   function DecodedInst unpack(Bit#(18) x);
-      return case (x[15:13])
-                3'b000: tagged Ubranch x[12:0];
-                3'b001: tagged Zbranch x[12:0];
-                3'b010: tagged Call x[12:0];
-                3'b011: tagged Alu DecodedInst_$Alu {
-                                     r_to_pc:  unpack(x[12]),
-                                     op:       unpack(x[11:8]),
-                                     t_to_n:   unpack(x[7]),
-                                     t_to_r:   unpack(x[6]),
-                                     n_to_mem: unpack(x[5]),
-                                     reserved: unpack(x[4]),
-                                     rstack:   unpack(x[3:2]),
-                                     dstack:   unpack(x[1:0])
-                                     };
-                default tagged Lit x[14:0];
-             endcase;
-   endfunction
-endinstance
+   } DecodedInst deriving (Bits, Eq, FShow);
 
 typedef Client#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Client_IFC;
 typedef Server#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Server_IFC;

@@ -23,8 +23,7 @@ module mkJ1(J1Client_IFC);
    Reg#(StackPtr)                dsp    <- mkReg(0); // data stack pointer
    Reg#(StackPtr)                rsp    <- mkReg(0); // return stack pointer
    FIFO#(MemoryRequest#(16, 16)) io_req <- mkFIFO;
-   FIFO#(MemoryResponse#(16))    io_rsp <- mkFIFO;
-   Wire#(Word)                   io_rdata <- mkDWire(?);
+   FIFOF#(MemoryResponse#(16))   io_rsp <- mkUGFIFOF;
 
    /* Dual-Port RAM 16Kx16
    *  port a: instruction
@@ -39,12 +38,22 @@ module mkJ1(J1Client_IFC);
    /* return stack 32x16 */
    RegFile#(StackPtr, Word) rstack <- mkRegFileFull;
    let rst0 = rstack.sub(rsp); // top of return stack (TOR)
+   
+   function DecodedInst decode(Word x);
+      return case (x[15:13])
+                3'b000: tagged Ubranch x[12:0];
+                3'b001: tagged Zbranch x[12:0];
+                3'b010: tagged Call x[12:0];
+                3'b011: tagged Alu unpack(x[12:0]);
+                default tagged Lit x[14:0];
+             endcase;
+   endfunction
 
-   rule rl_run;
+   rule run;
       /* instruction fetch */
       Word noop  = 16'h6000;
       let insn   = (pc == 0) ? noop : ram.a.read; // first instruction must always be a NOOP
-      let opcode = unpack(extend(insn));
+      let opcode = decode(insn);
 
       /* execute */
       let _st0 = st0;
@@ -85,20 +94,27 @@ module mkJ1(J1Client_IFC);
                _pc = zeroExtend(target << 1);
             end
 
-         tagged Alu {
-                     r_to_pc:  .r_to_pc,
+         tagged Alu {r_to_pc:  .r_to_pc,
                      op:       .op,
                      t_to_n:   .t_to_n,
                      t_to_r:   .t_to_r,
                      n_to_mem: .n_to_mem,
                      rstack:   .rstk,
-                     dstack:   .dstk
-                     }:
+                     dstack:   .dstk}:
             begin
                wen = n_to_mem;
                ren = (op == OP_AT) && !wen;
 
-               let rdata = (st0[15:14] == 0) ? ram.b.read : io_rdata;
+               Word rdata;
+               if (st0[15:14] == 0)
+                  rdata = ram.b.read;
+               else if (io_rsp.notEmpty) begin
+                  rdata = io_rsp.first.data;
+                  io_rsp.deq();
+               end
+               else
+                  rdata = st0;
+               
                _st0 = alu(op, st0, st1, rst0, rdata, dsp, rsp);
 
                _dsp = dsp + signExtend(dstk);
@@ -108,7 +124,7 @@ module mkJ1(J1Client_IFC);
                _rsp = rsp + signExtend(rstk);
                if (t_to_r)
                   rstack.upd(_rsp, st0);
-
+               
                if (r_to_pc)
                   _pc = truncate(rst0);
                else
@@ -131,17 +147,21 @@ module mkJ1(J1Client_IFC);
       pc  <= _pc;
 
       $display("%t: pc=%h insn=%h dsp=%h st0=%h st1=%h rsp=%h rst0=%h",
-               $time, pc, insn, dsp, st0, st1, rsp, rst0);
+         $time, pc, insn, dsp, st0, st1, rsp, rst0);
       //$display("%t: ", $time, fshow(opcode));
    endrule
 
-   rule rl_io_rsp;
-      let rsp = io_rsp.first;
-      io_rsp.deq;
-      io_rdata <= rsp.data;
-   endrule
+   /* Use interface methods instead of
+   * <return toGPClient(io_req, io_rsp);>
+   * because io_rsp in an unguarded FIFO
+   */
+   interface request = toGet(io_req);
 
-   return toGPClient(io_req, io_rsp);
+      interface Put response;
+         method Action put(rsp) if (io_rsp.notFull);
+            io_rsp.enq(rsp);
+         endmethod
+      endinterface
 endmodule
 
 endpackage
