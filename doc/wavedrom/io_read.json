@@ -1,0 +1,36 @@
+{signal: [
+    {name: 'clk', wave: 'p......'},
+    {name: 'pc', wave: '22....2', data: ['0100', '0102', '0104']},
+    {name: 'instruction', wave: '22....x', data: ['lit 4000', '@', 'noop']},
+    {name: 'T', wave: 'x2....3', data: ['4000', 'data']},
+    {name: 'N', wave: 'x......'},
+  {name: 'ioWait', wave: '0.1...0'},
+    {},
+    {name: 'io_req$D_IN', wave: 'x2....x', data: ['IO request']},
+    {name: 'io_req$FULL_N', wave: '1......'},
+    {name: 'io_req$ENQ', wave: '010....'},
+    {name: 'request.get.write', wave: 'x.0x...'},
+    {name: 'request.get.byteen', wave: 'x.2x...', data: ["2'b11"]},
+    {name: 'request.get.address', wave: 'x.2x...', data: ['2000']},
+    {name: 'request.get.data', wave: 'x.2x...', data: ['0000']},
+    {name: 'request.get.RDY', wave: '0.10...'},
+    {name: 'request.get.EN', wave: '0.10...'},
+    {},
+    {name: 'response.put.data', wave: 'x...3x.', data: ['data']},
+    {name: 'response.put.RDY', wave: '1......'},
+    {name: 'response.put.EN', wave: '0...10.'},
+    {name: 'io_rsp$EMPTY_N', wave: '0....10'},
+    {name: 'io_rsp$DEQ', wave: '0....10'},
+    {name: 'io_rsp$D_OUT', wave: 'x....3x', data: ['data']},
+],
+ config: {hscale: 2.5},
+ foot: {text: 'I/O read'}
+}
+
+// O request.get.data <- io_req$D_OUT
+// O request.get.RDY  <- io_req$EMPTY_N
+// I request.get.EN   -> io_req$DEQ
+
+// I response.put.data -> io_rsp$D_IN
+// O response.put.RDY  <- io_rsp$FULL_N
+// I response.put.EN   -> io_rsp$ENQ 

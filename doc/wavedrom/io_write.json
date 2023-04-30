@@ -1,0 +1,24 @@
+{signal: [
+    {name: 'clk', wave: 'p....'},
+    {name: 'pc', wave: '22222', data: ['0100', '0102', '0104', '0106', '0108']},
+    {name: 'instruction', wave: '2222x', data: ['lit 1234', 'lit 4000', 'store','drop']},
+    {name: 'T', wave: 'x22.x', data: ['1234', '4000']},
+    {name: 'N', wave: 'x.2.x', data: ['1234']},
+    {},
+    {name: 'io_req$D_IN', wave: 'x.2x.', data: ['IO request']},
+    {name: 'io_req$FULL_N', wave: '1....'},
+    {name: 'io_req$ENQ', wave: '0.10.'},
+    {name: 'request.get.write', wave: 'x..1x'},
+    {name: 'request.get.byteen', wave: 'x..2x', data: ["2'b11"]},
+    {name: 'request.get.address', wave: 'x..2x', data: ['2000']},
+    {name: 'request.get.data', wave: 'x..2x', data: ['1234']},
+    {name: 'request.get.RDY', wave: '0..10'},
+    {name: 'request.get.EN', wave: '0..10'}
+],
+ config: {hscale: 2.5},
+ foot: {text: 'I/O write'}
+}
+
+// O request.get.data <- io_req$D_OUT
+// O request.get.RDY  <- io_req$EMPTY_N
+// I request.get.EN   -> io_req$DEQ

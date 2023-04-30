@@ -47,7 +47,10 @@ typedef union tagged {
       } Alu;
    } DecodedInst deriving (Bits, Eq, FShow);
 
-typedef Client#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Client_IFC;
-typedef Server#(MemoryRequest#(16, 16), MemoryResponse#(16)) J1Server_IFC;
+typedef MemoryRequest#(16, 16) IORequest;
+typedef MemoryResponse#(16)    IOResponse;
+
+typedef Client#(IORequest, IOResponse) J1Client_IFC;
+typedef Server#(IORequest, IOResponse) J1Server_IFC;
 
 endpackage

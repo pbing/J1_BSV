@@ -8,5 +8,5 @@ simdir/
 *.hex
 *.mif
 bsim
-run.sh
+brun.sh
 clean.sh

@@ -23,12 +23,11 @@ module[ everything"
 include ../j1_forth/nuc.fs
 
 \ include stack.fs
+\ include mem.fs
 \ include fib1.fs
 \ include fib2.fs
 \ include multdiv.fs
-\ include io1.fs
-include io2.fs
-\ include io3.fs
+include io.fs
 
 ]module
 

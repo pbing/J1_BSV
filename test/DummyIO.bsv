@@ -6,21 +6,27 @@ import ClientServer::*;
 import FIFO::*;
 import GetPut::*;
 import Memory::*;
+import RegFile::*;
 
 import J1::*;
 
 (* synthesize *)
 module mkDummyIO(J1Server_IFC);
-   FIFO#(MemoryRequest#(16, 16)) io_req <- mkFIFO;
-   FIFO#(MemoryResponse#(16))    io_rsp <- mkFIFO;
+   FIFO#(IORequest)            io_req <- mkFIFO;
+   FIFO#(IOResponse)           io_rsp <- mkFIFO;
+   RegFile#(Bit#(2), Bit#(16)) rf_io <- mkRegFileFull; // 4 dummy registers
 
    rule rl_serve_io;
       let req = io_req.first;
       io_req.deq();
       $display("%t: IO_REQ = ", $time, fshow(req));
 
-      if (!req.write) begin
-         let rsp   = MemoryResponse {data: ~req.address};
+      Bit#(2) rf_addr = truncate(req.address >> 1);
+
+      if (req.write)
+         rf_io.upd(rf_addr, req.data);
+      else begin
+         let rsp = MemoryResponse {data: rf_io.sub(rf_addr)};
          io_rsp.enq(rsp);
          $display("%t: IO_RSP = ", $time, fshow(rsp));
       end
@@ -28,6 +34,5 @@ module mkDummyIO(J1Server_IFC);
 
    return toGPServer(io_req, io_rsp);
 endmodule
-
 
 endpackage
